@@ -8,7 +8,7 @@ from django.shortcuts import render
 
 def summary(request):
     context = {
-        'message': 'Hello!',
+        'message': 'Hey Guys!',
     }
     return render(request, 'consumption/summary.html', context)
 
