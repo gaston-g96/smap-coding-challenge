@@ -1,7 +1,13 @@
 {% extends 'consumption/layout.html' %}
 
 {% block content %}
+<h1>{{total_users}}</h1>
+<h1>{{total_consumption}}</h1>
+<h1>{{average_consumption}}</h1>
+{% for u in user_data %}
 
-<h1>{{message}}</h1>
+<h1>{{u.user_id}}</h1>
+{% endfor %}
+
 
 {% endblock %}

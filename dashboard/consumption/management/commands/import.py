@@ -1,136 +1,98 @@
 from django.core.management.base import BaseCommand
 from numpy import average
-import csv, os
+import csv, os, sys
 import requests
 from requests.exceptions import RequestException
 import glob
 import pandas as pd
+from consumption.models import User,Consumption
+from datetime import datetime as dt
+from django.utils.timezone import make_aware
+
+
 
 
 
 class Command(BaseCommand):
-    def hello(self):
-        return "hello"
     help = 'import data'
-    
+    # import CSV file and store sqlite
     # Declare a path of data.. 
     path=os.chdir('..')
     current_path = os.getcwd()
+    # Path of User CSV files...
     user_path = current_path + "/data/"
+    
+    # Path of Consumption CSV files...
     consumption_path =current_path +"/data/consumption/"
     consumption_files = glob.glob(consumption_path+"*")
     count_consumption_files = len(consumption_files)
     
-    # Read user_data.csv...
-    user_data_csv = open(user_path+'user_data.csv',"r")
-    user_data = csv.reader(user_data_csv)
-    
-    # Function To Get Consumption Data...
-    # You Can Return Consumption Data(list) by User_ID
-    def get_consumption_data(self,user_id):
-        consumption_csv = open(self.consumption_path+user_id+".csv")
-        consumption_data = csv.reader(consumption_csv)
-        return consumption_data
-    
-    # Get Total Consumption...
-    def get_total_consumption(self):
-        total_consumption = 0
-        for file in self.consumption_files:
-            df=pd.read_csv(file,usecols=[1],header=0)
-            sum=df['consumption'].sum()
-            total_consumption += int(sum)
-        return total_consumption
- 
-    # Get Average Consumption...
-    def get_average_consumption(self):
-        total_consumption = 0
-        count_files = self.count_consumption_files
-        for file in self.consumption_files:
-            df=pd.read_csv(file,usecols=[1],header=0)
-            sum=df['consumption'].sum()
-            total_consumption += int(sum)
-        
-        return total_consumption/count_files
-            
-
     
     def add_arguments(self, parser):
         # Postional Argument...
+        # Argument of "--user" ...
         parser.add_argument(
             '--user',
             action="store_true",
             help='Read user data',     
         )
-        # Return Count of All Users...
-        parser.add_argument(
-            '--totalusers',
-            action="store_true",
-            help='Read Count of All Users',   
-        )
-        
-        # Return All CSV Data of Consumption...
+        # Argument of "--consumption"...
         parser.add_argument(
             '--consumption',
-            nargs='?',
-            default='', 
-            type=str     
-        )
-        # Return Total Consumption...
-        parser.add_argument(
-            '--totalconsumption',
+            
             action="store_true",
-            help='Read Total Consumption',   
+            help='Read consumption data',     
         )
-        # Return Average Consumption...
-        parser.add_argument(
-            '--averageconsumption',
-            action="store_true",
-            help='Read Average Consumption',   
-        )
+
 
     
     def handle(self, *args, **options):
-        # Option "--readuser"...
+        # Method of option --user...
         if options["user"]:
-            try:
-                csv = self.user_data
-                next(csv)
-                # Write To Console...
-                #'user_data'and'count of data'
-                for r,i in enumerate(csv):
-                    self.stdout.write(str(i)+"count:"+str(r), ending='')  
-            except requests.exceptions.RequestException as e:
-                print("Error: ",e)
-        elif options['totalusers']:
+            sys.stderr.write("*** start ***\n")
+            # Read user_data.csv...
+            user_data_csv = open(self.user_path+'user_data.csv',"r")
+            user_data = csv.reader(user_data_csv)
+            next(user_data)
+            # Store Data from CSV ...
+            for u in user_data:
+                print(u)
+                hh = User()
+                hh.user_id = u[0]
+                hh.area = u[1]
+                hh.tariff = u[2]
+                hh.save()
+            sys.stderr.write("*** end ***\n")
+            user_data_csv.close()  
             
-            csv = self.user_data
-            next(csv)
-            # Write To Console...
-            # return count of total users
-            count = len(list(csv))
-            self.stdout.write(str(count))
+        elif options["consumption"]:
+            # Read consumption csv files...
+            sys.stderr.write("*** start ***\n")
+            # Store Data from CSV ...
+            for c in self.consumption_files:
+                print(c)
+                csv_file = open(c,"r")
+                consumption_data = csv.reader(csv_file) 
                 
-        elif options['consumption']:
-            try:
-                csv=self.get_consumption_data(options['consumption'])
-                next(csv)
-                # Write To Console...
-                #'consumption data picked by user id'and'count of data'
-                for r,i in enumerate(csv):
-                    self.stdout.write(str(i)+"count:"+str(r), ending='')  
-            except RequestException as e:
-                print("Error: ",e)
-        elif options['totalconsumption']:
-            total_consumption=self.get_total_consumption()
-            print(total_consumption)  
-        
-        elif options['averageconsumption']:
-            average_consumption =self.get_average_consumption()
-            print(average_consumption)
-        
-        
+                next(consumption_data)
+                # Get id from File name
+                user_id=os.path.splitext(os.path.basename(c))[0]
+                for data in consumption_data:
+                    print(data)
+                    hh = Consumption()
+                    hh.user_id = int(user_id)
+                    datetime_str =data[0]
+                    datetime =dt.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
+                    hh.datetime = make_aware(datetime)
+                    hh.consumption = data[1]
+                    hh.save()
+                print("next")
+                csv_file.close()  
+            sys.stderr.write("*** end ***\n")
+            
+            
         
         else:
             # Not Include Options...
             self.stdout.write("Unterminated line", ending='')
-
+        
